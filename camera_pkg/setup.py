@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            "camera_node = camera_pkg.camera:main"       # adding the camera node i.e "installer_name = pkg_name.py_filename:main"
         ],
     },
 )
