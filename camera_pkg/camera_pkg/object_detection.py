@@ -5,6 +5,7 @@ import cv2
 from cv_bridge import CvBridge
 from std_msgs.msg import Float64
 import os
+from datetime import datetime, timedelta
 
 class ObjectDetectionNode(Node):
     def __init__(self):
@@ -29,6 +30,11 @@ class ObjectDetectionNode(Node):
         self.detected_face_visualization = True
         self.additional_visualizations = True
 
+        # Last known offset and timestamp
+        self.last_offset = 0.0
+        self.last_detection_time = datetime.now()
+        self.timeout_duration = timedelta(seconds=1)  # 1 second timeout duration
+
     def detect_object_from_image(self, img_msg: Image):
         try:
             # Convert ROS Image message to OpenCV image
@@ -46,16 +52,19 @@ class ObjectDetectionNode(Node):
                 # Calculate offset between detected face and image center
                 offset = self.calculate_offset(x, w, self.img_center_x)
                 
-                # Publish the offset
-                self.object_publisher_.publish(Float64(data=offset))
+                # Update last known offset and detection time
+                self.last_offset = float(offset)
+                self.last_detection_time = datetime.now()
                 
                 # Draw visualizations and calculate offset (use combined draw function)
                 cv_image = self.draw_visualizations(cv_image, x, y, w, h, offset)
-            
             else:
-                offset = 0
-                # Publish the offset
-                self.object_publisher_.publish(Float64(data=offset))
+                # Check if the timeout period has elapsed
+                if datetime.now() - self.last_detection_time > self.timeout_duration:
+                    self.last_offset = 0.0  # Set offset to 0 after timeout period
+            
+            # Publish the offset
+            self.object_publisher_.publish(Float64(data=self.last_offset))
             
             # Display the image using OpenCV
             cv2.imshow("Camera Feed", cv_image)
