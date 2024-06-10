@@ -3,6 +3,8 @@ from rclpy.node import Node
 import requests
 import cv2
 import numpy as np
+from sensor_msgs.msg import Image
+from cv_bridge import CvBridge, CvBridgeError
 
 class CameraNode(Node):
     def __init__(self):
@@ -19,6 +21,9 @@ class CameraNode(Node):
             self.get_logger().error("IP parameter not provided. Exiting...")
             return
         self.ip = self.get_parameter('ip').get_parameter_value().string_value
+        
+        self.bridge = CvBridge()
+        self.image_publisher_ = self.create_publisher(Image, "camera_image", 10)
 
         # Initialize video capture based on camera source
         self.running = True
@@ -30,7 +35,8 @@ class CameraNode(Node):
 
     def init_android_cam(self):
         """Initialize the Android camera video capture using an IP stream."""
-        self.timer = self.create_timer(0.1, self.read_frames_from_android_cam)
+        # calling func at 25 times/sec ~= 25fpsi.e processing 25 image /sec 
+        self.timer = self.create_timer(0.04, self.read_frames_from_android_cam)
 
     def read_frames_from_android_cam(self):
         """Read and display frames from the Android camera using an IP stream."""
@@ -47,6 +53,12 @@ class CameraNode(Node):
 
             # Resize the image
             resized_image = cv2.resize(img, (new_width, new_height))
+            
+            # Convert OpenCV image to ROS image message
+            image_msg = self.bridge.cv2_to_imgmsg(resized_image, "bgr8")
+
+            # Publish the image message
+            self.image_publisher_.publish(image_msg)
 
             cv2.imshow("Android_cam", resized_image)
             if cv2.waitKey(1) == 27:  # Esc key has ASCII value of 27
