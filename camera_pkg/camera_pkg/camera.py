@@ -22,6 +22,10 @@ class CameraNode(Node):
             return
         self.ip = self.get_parameter('ip').get_parameter_value().string_value
         
+        # Declare parameter to control window display
+        self.declare_parameter('show_window', False)
+        self.show_window = self.get_parameter('show_window').get_parameter_value().bool_value
+        
         self.bridge = CvBridge()
         self.image_publisher_ = self.create_publisher(Image, "camera_image", 10)
 
@@ -32,6 +36,7 @@ class CameraNode(Node):
             self.android_url = "http://" + self.ip + ":8080/shot.jpg"
             #self.get_logger().info(self.android_url)
             self.init_android_cam()
+        self.get_logger().info("Camera node has been started.")
 
     def init_android_cam(self):
         """Initialize the Android camera video capture using an IP stream."""
@@ -60,12 +65,13 @@ class CameraNode(Node):
             # Publish the image message
             self.image_publisher_.publish(image_msg)
 
-            cv2.imshow("Android_cam", resized_image)
-            if cv2.waitKey(1) == 27:  # Esc key has ASCII value of 27
-                self.running = False
-                self.get_logger().info("Shutting down the Android_cam window...")
-                self.get_logger().info("Press 'cntrl + c' to kill the node.")
-                self.destroy_node()
+            if self.show_window:
+                cv2.imshow("Android_cam", resized_image)
+                if cv2.waitKey(1) == 27:  # Esc key has ASCII value of 27
+                    self.running = False
+                    self.get_logger().info("Shutting down the Android_cam window...")
+                    self.get_logger().info("Press 'Ctrl + C' to kill the node.")
+                    self.destroy_node()
             
         except requests.RequestException as e:
             self.get_logger().error(f"Error accessing Android camera: {e}")

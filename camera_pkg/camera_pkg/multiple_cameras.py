@@ -32,7 +32,7 @@ class MultipleCamerasNode(Node):
 
     def init_webcam(self):
         """Initialize the webcam video capture."""
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(0)  # self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
         if not self.cap.isOpened():
             self.get_logger().error("Error opening video capture device!")
             return
