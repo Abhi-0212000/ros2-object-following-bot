@@ -10,7 +10,8 @@ class RecordingManager:
         self.max_bags = max_bags
         self.record = record
         self.recording_process = None
-
+        
+        self.node.get_logger().info("in my_robot_utils pkg")
         if not os.path.exists(self.bag_directory):
             os.makedirs(self.bag_directory)
             self.node.get_logger().info(f"Directory created: {self.bag_directory}")
@@ -42,6 +43,7 @@ class RecordingManager:
         bag_file_path = os.path.join(self.bag_directory, f"recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.bag")
         self.recording_process = subprocess.Popen(['ros2', 'bag', 'record', '-o', bag_file_path, '--compression-mode', 
                                                    'file', '--compression-format', 'zstd', '/visualized_image'])
+        # Adjust the compression format (zstd, bz2, lz4, etc.) based on your preference
         self.bag_recording = True
         self.node.get_logger().info(f"Started recording: {bag_file_path}")
 

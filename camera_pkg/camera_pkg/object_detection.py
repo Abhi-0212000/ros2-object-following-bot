@@ -6,7 +6,7 @@ from cv_bridge import CvBridge
 from std_msgs.msg import Float64MultiArray
 import os
 from datetime import datetime, timedelta
-from .recording_manager import RecordingManager
+from my_robot_utils.recording_manager import RecordingManager
 
 class ObjectDetectionNode(Node):
     def __init__(self):
@@ -51,6 +51,9 @@ class ObjectDetectionNode(Node):
         
         # Bag Recording Management
         self.recording_manager = RecordingManager(self, self.record)
+        
+        # Flag to track if the camera feed window is open
+        self.is_camera_window_open = False
         
 
     def detect_object_from_image(self, img_msg: Image):
@@ -97,10 +100,16 @@ class ObjectDetectionNode(Node):
             
             # Check if the camera window or any visualizations are enabled
             if self.camera_window or self.detected_face_visualization or self.additional_visualizations:
+                if not self.is_camera_window_open:
+                    cv2.namedWindow("Camera Feed", cv2.WINDOW_NORMAL)
+                    self.is_camera_window_open = True
+                
                 cv2.imshow("Camera Feed", cv_image)
                 cv2.waitKey(1)
             else:
-                cv2.destroyWindow("Camera Feed")
+                if self.is_camera_window_open:
+                    cv2.destroyWindow("Camera Feed")
+                    self.is_camera_window_open = False
                 
             if self.record:
                 visualized_img_msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
