@@ -6,6 +6,7 @@ from cv_bridge import CvBridge
 from std_msgs.msg import Float64MultiArray
 import os
 from datetime import datetime, timedelta
+from .recording_manager import RecordingManager
 
 class ObjectDetectionNode(Node):
     def __init__(self):
@@ -13,6 +14,7 @@ class ObjectDetectionNode(Node):
         self.image_subscriber_ = self.create_subscription(Image, "camera_image", self.detect_object_from_image, 10)
         self.bridge = CvBridge()
         self.object_publisher_ = self.create_publisher(Float64MultiArray, "object_position", 10)
+        self.visualized_image_publisher_ = self.create_publisher(Image, "visualized_image", 10)
         self.get_logger().info("Object detection node started.")
         
         # Load the Haar Cascade for face detection from the same directory as the script
@@ -27,25 +29,29 @@ class ObjectDetectionNode(Node):
         self.img_center_y = int(self.img_height / 2)
         
         # User preferences (can be set from UI or config)
-        self.declare_parameter('detected_face_visualization', True)
+        self.declare_parameter('detected_face_visualization', False)
         self.detected_face_visualization = self.get_parameter('detected_face_visualization').get_parameter_value().bool_value
         
-        self.declare_parameter('additional_visualizations', True)
+        self.declare_parameter('additional_visualizations', False)
         self.additional_visualizations = self.get_parameter('additional_visualizations').get_parameter_value().bool_value
         
-        self.declare_parameter('camera_window', True)
+        self.declare_parameter('camera_window', False)
         self.camera_window = self.get_parameter('camera_window').get_parameter_value().bool_value
+        
+        self.declare_parameter('record', False)
+        self.record = self.get_parameter('record').get_parameter_value().bool_value
+        
+        # self.get_logger().info(f"record values is {self.record}")
 
         # Last known offset and timestamp
         self.last_offset = 0.0
         self.last_distance = 0.0
         self.last_detection_time = datetime.now()
         self.timeout_duration = timedelta(seconds=2)  # 2 second timeout duration
-
-        # Debug logging for initial parameter values
-        # self.get_logger().info(f"detected_face_visualization: {self.detected_face_visualization}")
-        # self.get_logger().info(f"additional_visualizations: {self.additional_visualizations}")
-        # self.get_logger().info(f"camera_window: {self.camera_window}")
+        
+        # Bag Recording Management
+        self.recording_manager = RecordingManager(self, self.record)
+        
 
     def detect_object_from_image(self, img_msg: Image):
         try:
@@ -89,15 +95,16 @@ class ObjectDetectionNode(Node):
             # Draw visualizations and calculate offset (use combined draw function)
             cv_image = self.draw_visualizations(cv_image, x, y, w, h, offset, distance)
             
-            # Debug logging for parameter values
-            # self.get_logger().info(f"Parameters - camera_window: {self.camera_window}, detected_face_visualization: {self.detected_face_visualization}, additional_visualizations: {self.additional_visualizations}")
-            
             # Check if the camera window or any visualizations are enabled
             if self.camera_window or self.detected_face_visualization or self.additional_visualizations:
                 cv2.imshow("Camera Feed", cv_image)
                 cv2.waitKey(1)
             else:
                 cv2.destroyWindow("Camera Feed")
+                
+            if self.record:
+                visualized_img_msg = self.bridge.cv2_to_imgmsg(cv_image, "bgr8")
+                self.visualized_image_publisher_.publish(visualized_img_msg)
                 
         except Exception as e:
             self.get_logger().error(f"Error processing image: {e}")
@@ -166,6 +173,11 @@ class ObjectDetectionNode(Node):
             image = cv2.line(image, (self.img_center_x, 0), (self.img_center_x, self.img_height), (0, 255, 0), 1)
 
         return image  # Return the image with additional visualizations (optional)
+    
+    def destroy(self):
+        self.get_logger().info("Destroying ObjectDetectionNode.")
+        self.recording_manager.destroy()
+        super().destroy_node()
 
 
 def main(args=None):
@@ -178,7 +190,7 @@ def main(args=None):
     finally:
         # Clean up resources
         cv2.destroyAllWindows()
-        node.destroy_node()
+        node.destroy()
         rclpy.shutdown()
         
 if __name__ == '__main__':
