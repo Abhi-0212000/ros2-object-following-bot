@@ -1,9 +1,10 @@
 import os
 from datetime import datetime
 import subprocess
+import shutil
 
 class RecordingManager:
-    def __init__(self, node, record: bool, bag_directory: str = "~/robot_bags/bag_recordings", max_bags: int = 3):
+    def __init__(self, node, record: bool, bag_directory: str = "~/robot_logs/robot_bags/bag_recordings", max_bags: int = 3):
         self.node = node
         self.bag_recording = False
         self.bag_directory = os.path.expanduser(bag_directory)
@@ -20,7 +21,8 @@ class RecordingManager:
 
         if self.record:
             self.manage_recording()
-            self.recording_timer = self.node.create_timer(120, self.manage_recording)
+            self.recording_timer = self.node.create_timer(150, self.manage_recording)
+        #self.cleanup_bag_files()
 
     def manage_recording(self):
         self.node.get_logger().info("Manage recording called.")
@@ -55,14 +57,27 @@ class RecordingManager:
             self.node.get_logger().info("Stopped recording")
 
     def cleanup_bag_files(self):
-        bag_files = sorted([f for f in os.listdir(self.bag_directory) if f.endswith('.bag')],
-                           key=lambda f: os.path.getmtime(os.path.join(self.bag_directory, f)))
-        while len(bag_files) > self.max_bags:
-            oldest_bag = bag_files.pop(0)
-            os.remove(os.path.join(self.bag_directory, oldest_bag))
-            self.node.get_logger().info(f"Deleted old bag file: {oldest_bag}")
+        # List directories in the bag_directory
+        bag_directories = [d for d in os.listdir(self.bag_directory) if os.path.isdir(os.path.join(self.bag_directory, d))]
+        
+        # Sort directories by modification time (oldest to newest)
+        bag_directories.sort(key=lambda d: os.path.getmtime(os.path.join(self.bag_directory, d)))
+        
+        # Remove old directories if the number of directories exceeds max_bags
+        while len(bag_directories) > self.max_bags:
+            oldest_bag_directory = bag_directories.pop(0)
+            self.remove_bag_directory(oldest_bag_directory)
 
+    def remove_bag_directory(self, directory_name):
+        directory_path = os.path.join(self.bag_directory, directory_name)
+        try:
+            shutil.rmtree(directory_path)
+            self.node.get_logger().info(f"Deleted old bag directory: {directory_name}")
+        except OSError as e:
+            self.node.get_logger().error(f"Error deleting bag directory {directory_name}: {e}")
+            
     def destroy(self):
         self.node.get_logger().info("Destroying RecordingManager.")
         if self.bag_recording:
             self.stop_recording()
+            self.cleanup_bag_files()
