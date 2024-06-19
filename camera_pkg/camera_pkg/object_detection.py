@@ -7,21 +7,25 @@ from std_msgs.msg import Float64MultiArray
 import os
 from datetime import datetime, timedelta
 from my_robot_utils.recording_manager import RecordingManager
+from my_robot_utils.custom_logger import NodeLogger
 
 class ObjectDetectionNode(Node):
     def __init__(self):
         super().__init__("object_detection_node")
+        self.logger_ = NodeLogger("object_detection_node", logging_level='INFO')
         self.image_subscriber_ = self.create_subscription(Image, "camera_image", self.detect_object_from_image, 10)
         self.bridge = CvBridge()
         self.object_publisher_ = self.create_publisher(Float64MultiArray, "object_position", 10)
         self.visualized_image_publisher_ = self.create_publisher(Image, "visualized_image", 10)
-        self.get_logger().info("Object detection node started.")
+        self.logger_.log_info("subscribed to topic 'camera_image'.\n"
+                     "Publisher created on the topic object_position.\n"
+                     "Publisher created on the topic visualized_image.")
         
         # Load the Haar Cascade for face detection from the same directory as the script
         cascade_path = os.path.join(os.path.dirname(__file__), 'haarcascade_frontalface_default.xml')
         self.face_cascade = cv2.CascadeClassifier(cascade_path)
         if self.face_cascade.empty():
-            self.get_logger().error("Failed to load Haar Cascade for face detection.")
+            self.logger_.log_error("Failed to load Haar Cascade for face detection.")
         
         self.img_width, self.img_height = 800, 400
         # Calculate center coordinates
@@ -42,18 +46,26 @@ class ObjectDetectionNode(Node):
         self.record = self.get_parameter('record').get_parameter_value().bool_value
         
         # self.get_logger().info(f"record values is {self.record}")
+        self.logger_.log_info("Input parameters are:\n"
+                     f"detected_face_visualization = {self.detected_face_visualization}\n"
+                     f"additional_visualizations = {self.additional_visualizations}\n"
+                     f"camera_window = {self.camera_window}\n"
+                     f"record = {self.record}")
 
         # Last known offset and timestamp
         self.last_offset = 0.0
         self.last_distance = 0.0
         self.last_detection_time = datetime.now()
-        self.timeout_duration = timedelta(seconds=2)  # 2 second timeout duration
+        self.timeout_duration = timedelta(seconds=7)  # 7 second timeout duration
         
         # Bag Recording Management
         self.recording_manager = RecordingManager(self, self.record)
         
         # Flag to track if the camera feed window is open
         self.is_camera_window_open = False
+        
+        self.get_logger().info("Object detection node started.")
+        self.logger_.log_info("object_detection_node started.")
         
 
     def detect_object_from_image(self, img_msg: Image):
@@ -87,13 +99,24 @@ class ObjectDetectionNode(Node):
                 # Publish the offset and distance
                 self.publish_object_position(self.last_offset, self.last_distance)
                 
+                self.logger_.log_debug("Face is detected with following details: "
+                                        f"offset = {self.last_offsett}, "
+                                        f"distance = {self.last_distance}, "
+                                        f"and last detection time = {self.last_detection_time}")
+
+                
             else:
                 # Check if the timeout period has elapsed
                 if datetime.now() - self.last_detection_time > self.timeout_duration:
+                    self.logger_.log_debug("Face is not detected for more than 7 sec. Setting last_offset and last_distance to 0.")
                     self.last_offset = 0.0  # Set offset to 0 after timeout period
                     self.last_distance = 0.0
                 # Publish the last known values
                 self.publish_object_position(self.last_offset, self.last_distance)
+                self.logger_.log_debug("Face is not detected. Using last detected details: "
+                                       f"offset = {self.last_offsett}, "
+                                        f"distance = {self.last_distance}, "
+                                        f"and last detection time = {self.last_detection_time}")
                 
             # Draw visualizations and calculate offset (use combined draw function)
             cv_image = self.draw_visualizations(cv_image, x, y, w, h, offset, distance)
@@ -102,6 +125,7 @@ class ObjectDetectionNode(Node):
             if self.camera_window or self.detected_face_visualization or self.additional_visualizations:
                 if not self.is_camera_window_open:
                     cv2.namedWindow("Camera Feed", cv2.WINDOW_NORMAL)
+                    self.logger_.log_info("Camera Feed window is created")
                     self.is_camera_window_open = True
                 
                 cv2.imshow("Camera Feed", cv_image)
@@ -109,6 +133,7 @@ class ObjectDetectionNode(Node):
             else:
                 if self.is_camera_window_open:
                     cv2.destroyWindow("Camera Feed")
+                    self.logger_.log_info("Camera Feed window is destroyed")
                     self.is_camera_window_open = False
                 
             if self.record:
@@ -117,6 +142,7 @@ class ObjectDetectionNode(Node):
                 
         except Exception as e:
             self.get_logger().error(f"Error processing image: {e}")
+            self.logger_.log_error(f"Error processing image: {e}")
 
     def calculate_offset(self, x, w, image_center_x):
         """
@@ -184,7 +210,6 @@ class ObjectDetectionNode(Node):
         return image  # Return the image with additional visualizations (optional)
     
     def destroy(self):
-        self.get_logger().info("Destroying ObjectDetectionNode.")
         self.recording_manager.destroy()
         super().destroy_node()
 
@@ -195,7 +220,8 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info("Shutting down 'object_detection_node'...")
+        node.logger_.log_info("Shutting down 'object_detection_node'...")
     finally:
         # Clean up resources
         cv2.destroyAllWindows()

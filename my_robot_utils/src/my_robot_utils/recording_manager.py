@@ -12,12 +12,13 @@ class RecordingManager:
         self.record = record
         self.recording_process = None
         
-        self.node.get_logger().info("in my_robot_utils pkg")
+        self.node.logger_.log_info("in RecordionManager.")
+        # self.node.get_logger().info("in my_robot_utils pkg")
         if not os.path.exists(self.bag_directory):
             os.makedirs(self.bag_directory)
-            self.node.get_logger().info(f"Directory created: {self.bag_directory}")
+            self.node.logger_.log_info(f"Directory created: {self.bag_directory}")
         else:
-            self.node.get_logger().info(f"Using existing directory: {self.bag_directory}")
+            self.node.logger_.log_info(f"Using existing directory: {self.bag_directory}")
 
         if self.record:
             self.manage_recording()
@@ -25,21 +26,20 @@ class RecordingManager:
         #self.cleanup_bag_files()
 
     def manage_recording(self):
-        self.node.get_logger().info("Manage recording called.")
         if self.record:
-            self.node.get_logger().info("Recording flag is True.")
+            self.node.logger_.log_info("Recording flag is True.")
             if not self.bag_recording:
-                self.node.get_logger().info("Starting new recording.")
+                self.node.logger_.log_info("Starting new recording.")
                 self.start_recording()
             else:
-                self.node.get_logger().info("Stopping current recording.")
+                self.node.logger_.log_info("Stopping current recording.")
                 self.stop_recording()
-                self.node.get_logger().info("Starting new recording.")
+                self.node.logger_.log_info("Starting new recording.")
                 self.start_recording()
-                self.node.get_logger().info("Cleaning up old bag files.")
+                self.node.logger_.log_info("Cleaning up old bag files.")
                 self.cleanup_bag_files()
         else:
-            self.node.get_logger().info("Recording flag is False.")
+            self.node.logger_.log_info("Recording flag is False.")
 
     def start_recording(self):
         bag_file_path = os.path.join(self.bag_directory, f"recording_{datetime.now().strftime('%Y%m%d_%H%M%S')}.bag")
@@ -47,14 +47,14 @@ class RecordingManager:
                                                    'file', '--compression-format', 'zstd', '/visualized_image'])
         # Adjust the compression format (zstd, bz2, lz4, etc.) based on your preference
         self.bag_recording = True
-        self.node.get_logger().info(f"Started recording: {bag_file_path}")
+        self.node.logger_.log_info(f"Started recording: {bag_file_path}")
 
     def stop_recording(self):
         if self.recording_process:
             self.recording_process.terminate()
             self.recording_process.wait()
             self.bag_recording = False
-            self.node.get_logger().info("Stopped recording")
+            self.node.logger_.log_info("Stopped recording")
 
     def cleanup_bag_files(self):
         # List directories in the bag_directory
@@ -72,12 +72,12 @@ class RecordingManager:
         directory_path = os.path.join(self.bag_directory, directory_name)
         try:
             shutil.rmtree(directory_path)
-            self.node.get_logger().info(f"Deleted old bag directory: {directory_name}")
+            self.node.logger_.log_info(f"Deleted old bag directory: {directory_name}")
         except OSError as e:
-            self.node.get_logger().error(f"Error deleting bag directory {directory_name}: {e}")
+            self.node.logger_.log_error(f"Error deleting bag directory {directory_name}: {e}")
             
     def destroy(self):
-        self.node.get_logger().info("Destroying RecordingManager.")
+        self.node.logger_.log_info("Destroying RecordingManager.")
         if self.bag_recording:
             self.stop_recording()
             self.cleanup_bag_files()

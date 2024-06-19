@@ -5,12 +5,12 @@ import cv2
 import numpy as np
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
-from my_robot_utils.logger import NodeLogger
+from my_robot_utils.custom_logger import NodeLogger
 
 class CameraNode(Node):
     def __init__(self):
         super().__init__("camera_node")
-        self.logger_ = NodeLogger("camera_node")
+        self.logger_ = NodeLogger("camera_node", logging_level='INFO')
 
         # Declare parameter to choose camera source
         self.declare_parameter('camera_source', 'android')
@@ -69,7 +69,7 @@ class CameraNode(Node):
         new_width, new_height = 800, 400
 
         try:
-            img_resp = requests.get(url)
+            img_resp = requests.get(url, timeout=2)
             img_resp.raise_for_status()  # Raise HTTPError for bad responses
             img_arr = np.array(bytearray(img_resp.content), dtype=np.uint8)
             img = cv2.imdecode(img_arr, -1)
@@ -100,6 +100,7 @@ class CameraNode(Node):
             self.timer = None  # Ensure the previous timer is null before setting a retry timer
             if self.retry_timer is None:
                 self.retry_timer = self.create_timer(5.0, self.retry_init_android_cam)  # Retry after 5 seconds
+                self.logger_.log_info("Timer is created to retry the camera connection for veery 5 sec untill it succeeds.")
         
         finally:
             self.busy_reading_frames = False  # Reset to allow next frame read
@@ -128,7 +129,8 @@ def main(args=None):
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
-        pass
+        node.get_logger().info("Shutting down 'camera_node'...")
+        node.logger_.log_info("Shutting down 'camera_node'...")
     finally:
         node.logger.close()
         node.destroy_node()

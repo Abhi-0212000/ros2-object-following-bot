@@ -11,7 +11,7 @@ def generate_launch_description():
         output='screen',
         parameters = [
             {"camera_source": "android"},
-            {"ip": "192.168.226.89"},
+            {"ip": "192.168.240.89"},
             {"show_window": False}
         ]
     )
@@ -25,7 +25,7 @@ def generate_launch_description():
             {"detected_face_visualization": False},
             {"additional_visualizations": False},
             {"camera_window": False},
-            {"record": True}
+            {"record": False}
         ]
     )
     
@@ -42,7 +42,7 @@ def generate_launch_description():
         name='arduino_interface_node',
         output='screen',
         parameters = [
-            {"log_cmd_vel_values": True}
+            {"log_cmd_vel_values": False}
         ]
     )
     
