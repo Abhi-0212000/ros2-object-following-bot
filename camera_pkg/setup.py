@@ -14,12 +14,14 @@ setup(
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='abhi',
-    maintainer_email='abhi@todo.todo',
-    description='TODO: Package description',
+    maintainer_email='nannuriabhi2000@gmail.com',
+    description='Camera Package',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            "camera_node = camera_pkg.camera:main",       # adding the camera node i.e "installer_name = pkg_name.py_filename:main"
+            "object_detection_node = camera_pkg.object_detection:main"
         ],
     },
 )

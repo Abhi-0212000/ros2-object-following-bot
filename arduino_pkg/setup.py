@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            "arduino_interface_node = arduino_pkg.arduino_interface:main"
         ],
     },
 )
